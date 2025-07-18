@@ -1,64 +1,74 @@
-import gi
-gi.require_version("Gtk", "3.0")
-gi.require_version("WebKit2", "4.0")
-from gi.repository import Gtk, WebKit2
+import tkinter as tk
+from tkinter import ttk, messagebox
+import requests
+from bs4 import BeautifulSoup
 
-# Código do seu navegador aqui
-
-class PiZeroBrowser(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="PiZero Browser")
-        self.set_default_size(800, 480)  # Resolução ideal para Pi Zero
-        
-        # Configurações para economizar recursos
-        self.settings = WebKit2.Settings()
-        self.settings.set_enable_javascript(True)  # Desative se não precisar de JS
-        self.settings.set_enable_media_stream(False)  # Desativa vídeo/áudio
-        self.settings.set_enable_smooth_scrolling(False)
-        
-        self.webview = WebKit2.WebView(settings=self.settings)
-        self.webview.load_uri("https://lite.duckduckgo.com")  # Página inicial leve
+class MiniBrowser:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Pi Zero Browser")
+        self.root.geometry("800x480")
         
         # Barra de URL
-        self.url_bar = Gtk.Entry()
-        self.url_bar.connect("activate", self.load_url)
+        self.url_bar = ttk.Entry(width=80)
+        self.url_bar.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        self.url_bar.bind("<Return>", self.load_page)
         
-        # Botões (Voltar/Recarregar)
-        self.back_btn = Gtk.Button(label="←")
-        self.back_btn.connect("clicked", self.go_back)
-        self.reload_btn = Gtk.Button(label="↻")
-        self.reload_btn.connect("clicked", self.reload_page)
+        # Abas
+        self.notebook = ttk.Notebook()
+        self.notebook.pack(expand=True, fill=tk.BOTH)
         
-        # Layout
-        header = Gtk.Box(spacing=5)
-        header.pack_start(self.back_btn, False, False, 0)
-        header.pack_start(self.url_bar, True, True, 0)
-        header.pack_start(self.reload_btn, False, False, 0)
+        # Botões
+        btn_frame = ttk.Frame()
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
         
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        vbox.pack_start(header, False, False, 0)
-        vbox.pack_start(self.webview, True, True, 0)
+        ttk.Button(btn_frame, text="←", command=self.go_back).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="↻", command=self.refresh).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="+", command=self.new_tab).pack(side=tk.LEFT)
         
-        self.add(vbox)
+        # Primeira aba
+        self.new_tab()
     
-    def load_url(self, widget):
-        url = self.url_bar.get_text()
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
-        self.webview.load_uri(url)
-        self.url_bar.set_text(url)
+    def new_tab(self):
+        frame = ttk.Frame(self.notebook)
+        self.notebook.add(frame, text="Nova Aba")
+        
+        text = tk.Text(frame, wrap=tk.WORD)
+        text.pack(expand=True, fill=tk.BOTH)
+        
+        self.notebook.select(frame)
+        return text
     
-    def go_back(self, widget):
-        self.webview.go_back()
+    def load_page(self, event=None):
+        url = self.url_bar.get()
+        if not url.startswith(("http://", "https://")):
+            url = "http://" + url
+        
+        try:
+            # Modo econômico: só baixa texto
+            response = requests.get(url, timeout=5)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Remove scripts/anúncios
+            for script in soup(["script", "iframe", "style"]):
+                script.decompose()
+                
+            text = self.notebook.nametowidget(self.notebook.select()).children["!text"]
+            text.delete(1.0, tk.END)
+            text.insert(tk.END, soup.get_text())
+            
+            self.root.title(f"Pi Browser - {url}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível carregar:\n{str(e)}")
     
-    def reload_page(self, widget):
-        self.webview.reload()
-
-def main():
-    win = PiZeroBrowser()
-    win.connect("destroy", Gtk.main_quit)
-    win.show_all()
-    Gtk.main()
+    def go_back(self):
+        # Implementação simplificada
+        messagebox.showinfo("Info", "Funcionalidade de voltar não implementada (use o histórico do terminal)")
+    
+    def refresh(self):
+        self.load_page()
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    MiniBrowser(root)
+    root.mainloop()
