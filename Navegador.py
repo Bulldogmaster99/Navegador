@@ -1,8 +1,9 @@
-#!/usr/bin/env python3
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('WebKit2', '4.0')
-from gi.repository import Gtk, WebKit2, GLib
+gi.require_version("Gtk", "3.0")
+gi.require_version("WebKit2", "4.0")
+from gi.repository import Gtk, WebKit2
+
+# Código do seu navegador aqui
 
 class PiZeroBrowser(Gtk.Window):
     def __init__(self):
